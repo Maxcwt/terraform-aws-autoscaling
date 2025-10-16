@@ -22,7 +22,7 @@ locals {
   vpc_id         = module.discovery.vpc_id
   public_subnets = module.discovery.public_subnets
   private_subnets= module.discovery.private_subnets
-  ami_id         = "ami-077df419785f9394f"
+  ami_id         = "ami-072ca9069b5972cdd"
 }
 
 resource "aws_security_group" "alb" {
@@ -46,6 +46,7 @@ resource "aws_vpc_security_group_ingress_rule" "asg_from_alb_netdata" {
   to_port                      = 19999
 }
 
+
 resource "aws_vpc_security_group_egress_rule" "alb_all_out" {
   security_group_id = aws_security_group.alb.id
   ip_protocol       = "-1"
@@ -64,6 +65,13 @@ resource "aws_vpc_security_group_ingress_rule" "asg_from_alb" {
   ip_protocol                  = "tcp"
   from_port                    = 8080
   to_port                      = 8080
+}
+resource "aws_vpc_security_group_ingress_rule" "alb_8080_in" {
+  security_group_id = aws_security_group.alb.id
+  ip_protocol       = "tcp"
+  from_port         = 8080
+  to_port           = 8080
+  cidr_ipv4         = "0.0.0.0/0"
 }
 
 
@@ -150,7 +158,10 @@ resource "aws_autoscaling_group" "asg" {
     version = "$Latest"
   }
 
-  target_group_arns = [aws_lb_target_group.http.arn]
+  target_group_arns = [
+    aws_lb_target_group.http.arn,
+    aws_lb_target_group.netdata.arn,
+  ]
 
   tag {
     key                 = "Name"
@@ -215,18 +226,18 @@ resource "aws_lb_target_group" "netdata" {
   health_check {
     protocol = "HTTP"
     port     = "19999"
-    path     = "/api/v1/info"
+    path     = "/api/v1/info"   # ou "/"
+    matcher  = "200-399"
+    interval = 30
+    timeout  = 5
     healthy_threshold   = 2
     unhealthy_threshold = 5
-    timeout             = 5
-    interval            = 30
-    matcher             = "200-399"
   }
 }
 
-resource "aws_lb_listener" "netdata" {
+resource "aws_lb_listener" "netdata_8080" {
   load_balancer_arn = aws_lb.public.arn
-  port              = 19999
+  port              = 8080
   protocol          = "HTTP"
 
   default_action {
@@ -234,6 +245,7 @@ resource "aws_lb_listener" "netdata" {
     target_group_arn = aws_lb_target_group.netdata.arn
   }
 }
+
 
 resource "aws_lb_listener_rule" "netdata_rule" {
   listener_arn = aws_lb_listener.http.arn

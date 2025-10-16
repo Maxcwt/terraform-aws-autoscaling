@@ -13,7 +13,7 @@ variable "vpc_name" {
 variable "ec2_ami_names" {
   type        = list(string)
   description = "List of EC2 AMI names to filter (NAME, not ID)"
-  default     = ["CCM2 V2 "]
+  default     = ["CCM V3"]
 }
 
 variable "ec2_ami_owners" {
